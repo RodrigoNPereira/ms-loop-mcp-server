@@ -6,6 +6,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `loop_create_page` for creating Loop pages from Markdown.
+- `loop_update_page` for appending, prepending, replacing a named section, replacing the complete body, and renaming pages.
+- Loop Web Service token extraction and refresh, with an optional Azure CLI token fallback.
+
+### Fixed
+
+- `MSLOOP_BROWSER=chromium` now selects Playwright's bundled browser instead of Chrome.
+- Interactive login now respects its configured timeout and allows ten minutes for password/MFA flows.
+
 ## [0.1.2] - 2026-06-12
 
 ### Changed

@@ -11,17 +11,17 @@ This document captures project knowledge to help AI agents work effectively with
 
 ## Project Overview
 
-An MCP server that gives AI assistants read and discovery access to Microsoft Loop. Microsoft publishes no Loop API, so this reuses the Loop web app's own first party client ID and the internal APIs the web client calls, with tokens extracted from a browser session. The browser is only used for initial login and silent refresh fallback, everything else is direct HTTP.
+An MCP server that gives AI assistants discovery, read, and page-write access to Microsoft Loop. Microsoft publishes no Loop API, so this reuses the Loop web app's own first party client ID and the internal APIs the web client calls, with tokens extracted from a browser session. The browser is only used for initial login and silent refresh fallback; everything else is direct HTTP.
 
 ## The central constraint
 
 Loop is not a REST resource model like mail or calendar. Workspaces are SharePoint Embedded containers, and pages are Fluid Framework documents (ops plus snapshots). There is no public content-write API and content cannot be materialised over plain HTTP without the Fluid client runtime.
 
-So this server is **read and discovery only**:
+The server uses two different content paths:
 
 - Metadata (workspaces, pages) comes from the Substrate Loop API.
 - Page content is read by asking SharePoint to render the Fluid document to HTML on demand (`?format=html`), then converting to Markdown. Lossy for rich components.
-- Writing or editing page content is **out of scope** and not achievable here.
+- Pages are created and updated through Loop Web Service (`prod.api.loop.cloud.microsoft/v0.1`), which accepts Markdown-like raw content and materialises the Fluid operations server-side. This is an undocumented internal API and may change without notice.
 
 ## Architecture
 
@@ -42,6 +42,7 @@ src/
     client.ts           substrateGet/Post, graphGet/Post, sharePointGetText
     loop.ts             discover() (merge /workspaces + /recent + /deltasync), listPages, createWorkspace
     pages.ts            getPageContent — HTML export then htmlToMarkdown
+    loop-web.ts         create/read/update pages through Loop Web Service
     search.ts           Graph /search/query for .loop / .fluid files
   utils/
     http.ts             Bearer headers, retry, the SharePoint multipart "GET via POST" builder
@@ -57,9 +58,12 @@ src/
   - Substrate (`substrate.office.com`) — workspace and page metadata.
   - SharePoint (`{tenant}.sharepoint.com`) — Fluid snapshots and page content.
   - Graph (`graph.microsoft.com`) — file search.
+  - Loop Web Service (`api.loop.cloud.microsoft`) — page creation and updates.
 - **Discovery**: `GET https://substrate.office.com/recommended/api/v1.1/loop/{workspaces,recent,deltasync}`. No single endpoint is complete, so all three are merged and deduped by id, following `next_page_link`.
 - **Page content**: `GET https://{spHost}/_api/v2.0/drives/{driveId}/items/{itemId}/content?format=html&ump=1`, fetched via the multipart "GET via POST" convention (`X-HTTP-Method-Override: GET` inside a `multipart/form-data` body). Coordinates come from the page's `sharepoint_info.site_url` and `onedrive_info.drive_id`, with the item id taken from the page id after the last `_`; the workspace `mfs_info.pod_id` (base64 `…|host|driveId|itemId`) is the fallback.
 - **Workspace creation (experimental)**: `POST https://substrate.office.com/speedway/v1.0/workspaceGroups`.
+- **Page creation/update**: `POST /v0.1/workspaces/{podId}/pages` and `PATCH /v0.1/pages/{pageId}` at `prod.api.loop.cloud.microsoft`.
+- **Complete page tree**: `POST /v0.1/workspaces/{podId}/pages/list`; Substrate discovery remains the fallback.
 
 ## Implementation patterns
 
@@ -76,4 +80,4 @@ src/
 
 ## Tools
 
-`loop_login`, `loop_status`, `loop_logout`, `loop_list_workspaces`, `loop_list_pages`, `loop_get_page`, `loop_search`, `loop_create_workspace` (experimental).
+`loop_login`, `loop_status`, `loop_logout`, `loop_list_workspaces`, `loop_list_pages`, `loop_get_page`, `loop_create_page`, `loop_update_page`, `loop_search`, `loop_create_workspace` (experimental).
