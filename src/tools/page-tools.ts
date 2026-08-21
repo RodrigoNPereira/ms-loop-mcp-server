@@ -6,6 +6,18 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { discover } from '../api/loop.js';
 import { getPageContent } from '../api/pages.js';
+import { resolvePageCoordinates } from '../api/pages.js';
+import {
+  createLoopPage,
+  decodeLoopWebPageId,
+  encodeLoopWebPageId,
+  listLoopPages,
+  modifyLoopPage,
+  readLoopPage,
+  type CreatePageRequest,
+  type ModifyPageRequest,
+  type LoopWebPageListItem,
+} from '../api/loop-web.js';
 import { decodePodId } from '../utils/parsers.js';
 import type { LoopPage, LoopWorkspace } from '../types/loop.js';
 
@@ -26,6 +38,52 @@ function workspaceFallback(workspaces: LoopWorkspace[], workspaceId: string | un
   return decodePodId(ws?.mfs_info?.pod_id);
 }
 
+function toolResult(value: unknown) {
+  return { content: [{ type: 'text' as const, text: JSON.stringify(value, null, 2) }] };
+}
+
+function errorResult(action: string, err: unknown) {
+  return toolResult({
+    success: false,
+    message: `${action}: ${err instanceof Error ? err.message : String(err)}`,
+  });
+}
+
+function findWorkspace(workspaces: LoopWorkspace[], workspaceId: string): LoopWorkspace | undefined {
+  return workspaces.find(w => w.id === workspaceId || w.mfs_info?.pod_id === workspaceId);
+}
+
+function flattenLoopWebPages(
+  pages: LoopWebPageListItem[],
+  workspaceId: string,
+  parentElementId?: string,
+  depth = 0,
+): Array<Record<string, unknown>> {
+  return pages.flatMap(page => {
+    const metadata = page.odspMetadata;
+    const current = metadata && page.type === 'Loop'
+      ? [{
+          id: encodeLoopWebPageId({
+            host: new URL(metadata.siteUrl).hostname,
+            driveId: metadata.driveId,
+            itemId: metadata.itemId,
+          }),
+          elementId: page.elementId,
+          title: page.title,
+          type: page.type,
+          workspaceId,
+          parentElementId,
+          depth,
+          link: page.link,
+        }]
+      : [];
+    return [
+      ...current,
+      ...flattenLoopWebPages(page.children ?? [], workspaceId, page.elementId, depth + 1),
+    ];
+  });
+}
+
 export function registerPageTools(server: McpServer): void {
   // ── loop_list_pages ──────────────────────────────────────────────────────
   server.tool(
@@ -36,16 +94,27 @@ export function registerPageTools(server: McpServer): void {
       include_deleted: z.boolean().optional().describe('Include deleted pages. Default: false.'),
     },
     async ({ workspace_id, include_deleted }) => {
-      const { pages } = await discover();
-      const filtered = pages.filter(
-        p => p.workspace_id === workspace_id && (include_deleted || !p.is_deleted),
-      );
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({ count: filtered.length, pages: filtered.map(summarisePage) }, null, 2),
-        }],
-      };
+      try {
+        const { pages, workspaces } = await discover();
+        const workspace = findWorkspace(workspaces, workspace_id);
+
+        if (workspace && !include_deleted) {
+          try {
+            const result = await listLoopPages(workspace.mfs_info?.pod_id ?? workspace.id);
+            const listed = flattenLoopWebPages(result.pages, workspace.id);
+            return toolResult({ count: listed.length, source: 'loop-web-service', pages: listed });
+          } catch {
+            // Fall through to Substrate metadata when Loop Web Service is unavailable.
+          }
+        }
+
+        const filtered = pages.filter(
+          p => p.workspace_id === workspace_id && (include_deleted || !p.is_deleted),
+        );
+        return toolResult({ count: filtered.length, source: 'substrate', pages: filtered.map(summarisePage) });
+      } catch (err) {
+        return errorResult('Page listing failed', err);
+      }
     },
   );
 
@@ -58,6 +127,22 @@ export function registerPageTools(server: McpServer): void {
       format: z.enum(['markdown', 'html']).optional().describe('Output format. Default: markdown.'),
     },
     async ({ page_id, format }) => {
+      const directCoordinates = decodeLoopWebPageId(page_id);
+      if (directCoordinates) {
+        if (format === 'html') {
+          return toolResult({
+            success: false,
+            message: 'HTML output is unavailable for a Loop Web Service page id; use format=markdown.',
+          });
+        }
+        try {
+          const page = await readLoopPage(page_id);
+          return toolResult({ success: true, id: page_id, title: page.title, content: page.content });
+        } catch (err) {
+          return errorResult('Page read failed', err);
+        }
+      }
+
       const { pages, workspaces } = await discover();
       const page = pages.find(p => p.id === page_id);
       if (!page) {
@@ -84,6 +169,124 @@ export function registerPageTools(server: McpServer): void {
           }, null, 2),
         }],
       };
+    },
+  );
+
+  // ── loop_create_page ────────────────────────────────────────────────────
+  server.tool(
+    'loop_create_page',
+    'Create a Microsoft Loop page from Markdown content. The page is created through the same Loop Web Service used by Microsoft clients.',
+    {
+      workspace_id: z.string().min(1).describe('Workspace id from loop_list_workspaces.'),
+      title: z.string().min(1).describe('Page title.'),
+      content: z.string().optional().describe('Initial page content in Markdown. Default: empty page.'),
+      position: z.enum(['first', 'last', 'before', 'after']).optional().describe('Position in the workspace. Default: last.'),
+      parent_element_id: z.string().min(1).optional().describe('Create as a child of this page element id; valid with first/last.'),
+      sibling_element_id: z.string().min(1).optional().describe('Sibling element id; required with before/after.'),
+      share_scope: z.enum(['organization', 'users', 'default']).optional().describe('Optionally create a sharing link with this scope.'),
+    },
+    async ({ workspace_id, title, content, position, parent_element_id, sibling_element_id, share_scope }) => {
+      try {
+        const { workspaces } = await discover();
+        const workspace = findWorkspace(workspaces, workspace_id);
+        if (!workspace) return toolResult({ success: false, message: `No workspace found with id ${workspace_id}.` });
+
+        const apiWorkspaceId = workspace.mfs_info?.pod_id ?? workspace.id;
+        const selectedPosition = position ?? 'last';
+        let location: CreatePageRequest['location'];
+        if (selectedPosition === 'before' || selectedPosition === 'after') {
+          if (!sibling_element_id) {
+            return toolResult({ success: false, message: `sibling_element_id is required with position ${selectedPosition}.` });
+          }
+          location = { type: selectedPosition, sibling: sibling_element_id };
+        } else {
+          location = parent_element_id
+            ? { type: selectedPosition, parent: parent_element_id }
+            : { type: selectedPosition };
+        }
+
+        const created = await createLoopPage(apiWorkspaceId, {
+          title,
+          content: { type: 'raw', value: content ?? '' },
+          location,
+          ...(share_scope ? { shareLinkOptions: { scope: share_scope } } : {}),
+        });
+        return toolResult({ success: true, message: `Created Loop page "${title}".`, page: created.page });
+      } catch (err) {
+        return errorResult('Page creation failed', err);
+      }
+    },
+  );
+
+  // ── loop_update_page ────────────────────────────────────────────────────
+  server.tool(
+    'loop_update_page',
+    'Update a Loop page. Appends by default; can prepend, replace a named heading section, replace the complete body, or change the title. Full replacement requires confirm_replace_all=true.',
+    {
+      page_id: z.string().min(1).describe('Page id from loop_list_pages or loop_create_page.'),
+      title: z.string().min(1).optional().describe('New page title.'),
+      content: z.string().min(1).optional().describe('Markdown content to insert or replace.'),
+      operation: z.enum(['append', 'prepend', 'replace_section', 'replace_all']).optional().describe('Content operation. Default: append.'),
+      section_heading: z.string().min(1).optional().describe('Heading name required by replace_section.'),
+      confirm_replace_all: z.boolean().optional().describe('Must be true for replace_all because it removes the current page body.'),
+    },
+    async ({ page_id, title, content, operation, section_heading, confirm_replace_all }) => {
+      try {
+        if (!title && !content) return toolResult({ success: false, message: 'Provide title, content, or both.' });
+
+        let page: LoopPage | undefined;
+        let coordinates = decodeLoopWebPageId(page_id);
+        if (!coordinates) {
+          const { pages, workspaces } = await discover();
+          page = pages.find(p => p.id === page_id);
+          coordinates = page
+            ? resolvePageCoordinates(page, workspaceFallback(workspaces, page.workspace_id))
+            : null;
+        }
+        if (!coordinates) return toolResult({ success: false, message: `No page found or invalid Loop page id: ${page_id}.` });
+        const apiPageId = page ? encodeLoopWebPageId(coordinates) : page_id;
+
+        const request: ModifyPageRequest = {};
+        if (title) request.title = title;
+        if (content) {
+          request.content = { type: 'raw', value: content };
+          const selectedOperation = operation ?? 'append';
+          if (selectedOperation === 'replace_section') {
+            if (!section_heading) {
+              return toolResult({ success: false, message: 'section_heading is required for replace_section.' });
+            }
+            request.location = { type: 'replace', path: [{ type: 'TargetLabel', value: section_heading }] };
+          } else if (selectedOperation === 'replace_all') {
+            if (confirm_replace_all !== true) {
+              return toolResult({ success: false, message: 'Set confirm_replace_all=true to replace the complete page body.' });
+            }
+            request.location = { type: 'replace', path: 'REPLACE_ALL' };
+          } else {
+            request.location = { type: selectedOperation === 'prepend' ? 'before' : 'after' };
+          }
+        }
+
+        await modifyLoopPage(apiPageId, request);
+        try {
+          const updated = await readLoopPage(apiPageId);
+          return toolResult({
+            success: true,
+            message: `Updated Loop page "${updated.title}".`,
+            id: page?.id ?? page_id,
+            title: updated.title,
+            content: updated.content,
+          });
+        } catch (verificationError) {
+          return toolResult({
+            success: true,
+            message: 'The update was accepted, but the read-back verification failed. Do not repeat an append automatically.',
+            id: page?.id ?? page_id,
+            verificationError: verificationError instanceof Error ? verificationError.message : String(verificationError),
+          });
+        }
+      } catch (err) {
+        return errorResult('Page update failed', err);
+      }
     },
   );
 }

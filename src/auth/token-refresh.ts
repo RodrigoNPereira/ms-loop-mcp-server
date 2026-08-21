@@ -17,6 +17,7 @@ import {
   LOOP_ORIGIN,
   SUBSTRATE_SCOPE,
   GRAPH_SCOPE,
+  LOOP_API_SCOPE,
   TOKEN_ENDPOINT_TEMPLATE,
 } from '../constants.js';
 import { readTokenCache, writeTokenCache, type TokenCache } from './session-store.js';
@@ -132,6 +133,14 @@ export function refreshGraphToken(): Promise<string | null> {
     ...cache,
     graphToken: token,
     graphTokenExpiry: expiry,
+  }));
+}
+
+export function refreshLoopApiToken(): Promise<string | null> {
+  return refreshResource('loop-api', LOOP_API_SCOPE, (cache, token, expiry) => ({
+    ...cache,
+    loopApiToken: token,
+    loopApiTokenExpiry: expiry,
   }));
 }
 

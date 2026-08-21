@@ -24,6 +24,12 @@ export const SUBSTRATE_SCOPE = 'https://substrate.office.com/.default';
 /** Microsoft Graph scope (used for file search and metadata). */
 export const GRAPH_SCOPE = 'https://graph.microsoft.com/.default';
 
+/** Loop Web Service scope (page creation and content updates). */
+export const LOOP_API_SCOPE = 'https://api.loop.cloud.microsoft/.default';
+
+/** Azure resource used by `az account get-access-token` for Loop Web Service. */
+export const LOOP_API_RESOURCE = 'https://api.loop.cloud.microsoft';
+
 /** The Loop web app URL we open for login and token acquisition. */
 export const LOOP_URL = 'https://loop.cloud.microsoft/';
 
@@ -46,6 +52,9 @@ export const SPEEDWAY_BASE = `${SUBSTRATE_BASE}/speedway/v1.0`;
 /** Microsoft Graph base. */
 export const GRAPH_BASE = 'https://graph.microsoft.com/v1.0';
 
+/** Internal Loop Web Service used by the Loop clients for page operations. */
+export const LOOP_WEB_SERVICE_BASE = 'https://prod.api.loop.cloud.microsoft/v0.1';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Token / Refresh
 // ─────────────────────────────────────────────────────────────────────────────
@@ -54,7 +63,7 @@ export const GRAPH_BASE = 'https://graph.microsoft.com/v1.0';
 export const TOKEN_REFRESH_BUFFER_MS = 55 * 60 * 1000;
 
 /** How long to wait for the user to complete browser login (ms). */
-export const LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
+export const LOGIN_TIMEOUT_MS = 10 * 60 * 1000;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HTTP

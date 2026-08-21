@@ -113,6 +113,7 @@ export function registerAuthTools(server: McpServer): void {
               substrateMinutesRemaining: status.substrateTokenMinutesRemaining,
               sharePointMinutesRemaining: status.sharePointTokenMinutesRemaining,
               graphMinutesRemaining: status.graphTokenMinutesRemaining,
+              loopApiMinutesRemaining: status.loopApiTokenMinutesRemaining,
             },
             session: {
               exists: hasSessionState(),

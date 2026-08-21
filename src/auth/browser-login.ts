@@ -52,7 +52,7 @@ function loopAccessTokenPresent(): boolean {
       const key = store.key(i) ?? '';
       const lower = key.toLowerCase();
       if (!lower.includes('accesstoken')) continue;
-      if (lower.includes('substrate.office.com') || lower.includes('.sharepoint.com') || lower.includes('graph.microsoft.com')) {
+      if (lower.includes('substrate.office.com') || lower.includes('.sharepoint.com') || lower.includes('graph.microsoft.com') || lower.includes('api.loop.cloud.microsoft')) {
         return true;
       }
     }
@@ -74,9 +74,10 @@ function gatherStorageEntriesInBrowser(): Array<{ name: string; value: string }>
   return out;
 }
 
-function getBrowserChannel(): string {
+function getBrowserChannel(): string | undefined {
   const override = process.env.MSLOOP_BROWSER?.trim().toLowerCase();
-  if (override && override !== 'chromium' && override !== 'bundled') return override;
+  if (override === 'chromium' || override === 'bundled') return undefined;
+  if (override) return override;
 
   if (process.platform === 'darwin') {
     const detected = getMacOSDefaultBrowser();
@@ -175,6 +176,8 @@ async function extractAndCacheTokens(context: BrowserContext, page: Page): Promi
     sharePointResource: tokens.sharePointResource,
     graphToken: tokens.graphToken,
     graphTokenExpiry: tokens.graphTokenExpiry?.getTime(),
+    loopApiToken: tokens.loopApiToken,
+    loopApiTokenExpiry: tokens.loopApiTokenExpiry?.getTime(),
     refreshToken: tokens.refreshToken,
     tenantId: tokens.tenantId,
     upn: tokens.upn,
@@ -184,12 +187,12 @@ async function extractAndCacheTokens(context: BrowserContext, page: Page): Promi
   return tokens.upn ?? 'unknown';
 }
 
-async function launchContext(profileDir: string, headless: boolean, channel: string): Promise<BrowserContext> {
+async function launchContext(profileDir: string, headless: boolean, channel?: string): Promise<BrowserContext> {
   cleanupStaleSingletonLock(profileDir);
 
   const launch = () => chromium.launchPersistentContext(profileDir, {
     headless,
-    channel,
+    ...(channel ? { channel } : {}),
     viewport: { width: 1280, height: 800 },
     acceptDownloads: false,
   });
@@ -235,7 +238,7 @@ async function waitForLoopAuth(context: BrowserContext, timeoutMs: number): Prom
     }
     if (redirectedToLogin) return false;
 
-    await page.waitForFunction(loopAccessTokenPresent, { timeout: timeoutMs });
+    await page.waitForFunction(loopAccessTokenPresent, undefined, { timeout: timeoutMs });
     return true;
   } finally {
     page.off('framenavigated', onNavigation);
@@ -355,7 +358,7 @@ export async function headedLogin(clearCookiesFirst = false): Promise<LoginResul
     if (!authenticated) {
       logger.info('Waiting for you to complete sign-in in the browser...');
       if (page) {
-        await page.waitForFunction(loopAccessTokenPresent, { timeout: LOGIN_TIMEOUT_MS });
+        await page.waitForFunction(loopAccessTokenPresent, undefined, { timeout: LOGIN_TIMEOUT_MS });
       }
     }
 

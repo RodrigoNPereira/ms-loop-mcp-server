@@ -34,6 +34,9 @@ export interface TokenCache {
   /** Microsoft Graph token (file search + metadata). */
   graphToken?: string;
   graphTokenExpiry?: number;
+  /** Loop Web Service token (page creation and content updates). */
+  loopApiToken?: string;
+  loopApiTokenExpiry?: number;
   /** MSAL refresh token, used for silent HTTP refresh of all the above. */
   refreshToken: string;
   tenantId?: string;

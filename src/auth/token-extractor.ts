@@ -12,6 +12,7 @@
  *   - Substrate  → target/aud contains "substrate.office.com"
  *   - SharePoint → target/aud contains ".sharepoint.com"
  *   - Graph      → target/aud contains "graph.microsoft.com"
+ *   - Loop API   → target/aud contains "api.loop.cloud.microsoft"
  *
  * This mirrors how msteams-mcp and msoutlook-mcp extract tokens, adapted for Loop.
  */
@@ -31,6 +32,8 @@ export interface ExtractedTokens {
   sharePointResource?: string;
   graphToken?: string;
   graphTokenExpiry?: Date;
+  loopApiToken?: string;
+  loopApiTokenExpiry?: Date;
   refreshToken: string;
   tenantId?: string;
   upn?: string;
@@ -111,6 +114,7 @@ export function extractTokensFromEntries(entries: StorageEntry[]): ExtractedToke
   let bestSubstrate: Candidate | null = null;
   let bestSharePoint: Candidate | null = null;
   let bestGraph: Candidate | null = null;
+  let bestLoopApi: Candidate | null = null;
   let sharePointResource: string | undefined;
   let refreshToken: string | null = null;
   let tenantId: string | undefined;
@@ -155,6 +159,8 @@ export function extractTokensFromEntries(entries: StorageEntry[]): ExtractedToke
 
     if (haystack.includes('substrate.office.com')) {
       bestSubstrate = betterOf(bestSubstrate, { token: entry.secret, expiry });
+    } else if (haystack.includes('api.loop.cloud.microsoft')) {
+      bestLoopApi = betterOf(bestLoopApi, { token: entry.secret, expiry });
     } else if (haystack.includes('.sharepoint.com')) {
       const cand = { token: entry.secret, expiry };
       if (betterOf(bestSharePoint, cand) === cand) {
@@ -170,7 +176,7 @@ export function extractTokensFromEntries(entries: StorageEntry[]): ExtractedToke
     logger.debug('Token extraction failed: no refresh token found');
     return null;
   }
-  if (!bestSubstrate && !bestSharePoint && !bestGraph) {
+  if (!bestSubstrate && !bestSharePoint && !bestGraph && !bestLoopApi) {
     logger.debug('Token extraction failed: no Loop-relevant access tokens found');
     return null;
   }
@@ -183,6 +189,8 @@ export function extractTokensFromEntries(entries: StorageEntry[]): ExtractedToke
     sharePointResource,
     graphToken: bestGraph?.token,
     graphTokenExpiry: bestGraph?.expiry,
+    loopApiToken: bestLoopApi?.token,
+    loopApiTokenExpiry: bestLoopApi?.expiry,
     refreshToken,
     tenantId,
     upn,

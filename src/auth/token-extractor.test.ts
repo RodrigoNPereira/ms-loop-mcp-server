@@ -48,6 +48,9 @@ describe('extractTokensFromEntries', () => {
       accessEntry('a-accesstoken-graph', 'https://graph.microsoft.com/.default', {
         exp: future, aud: 'https://graph.microsoft.com',
       }),
+      accessEntry('a-accesstoken-loop-api', 'https://api.loop.cloud.microsoft/.default', {
+        exp: future, aud: 'https://api.loop.cloud.microsoft',
+      }),
       { name: 'a-refreshtoken-loop', value: JSON.stringify({ credentialType: 'RefreshToken', clientId: LOOP_CLIENT_ID, secret: 'rt-value' }) },
     ];
 
@@ -57,6 +60,7 @@ describe('extractTokensFromEntries', () => {
     expect(result!.sharePointToken).toBeTruthy();
     expect(result!.sharePointResource).toBe('https://contoso.sharepoint.com');
     expect(result!.graphToken).toBeTruthy();
+    expect(result!.loopApiToken).toBeTruthy();
     expect(result!.refreshToken).toBe('rt-value');
     expect(result!.tenantId).toBe('tenant-1');
     expect(result!.upn).toBe('me@contoso.com');
