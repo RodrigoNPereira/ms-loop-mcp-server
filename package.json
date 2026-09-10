@@ -50,10 +50,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/vilsonrodrigues/msloop-mcp.git"
+    "url": "git+https://github.com/vilsonrodrigues/ms-loop-mcp-server.git"
   },
   "bugs": {
-    "url": "https://github.com/vilsonrodrigues/msloop-mcp/issues"
+    "url": "https://github.com/vilsonrodrigues/ms-loop-mcp-server/issues"
   },
-  "homepage": "https://github.com/vilsonrodrigues/msloop-mcp#readme"
+  "homepage": "https://github.com/vilsonrodrigues/ms-loop-mcp-server#readme"
 }

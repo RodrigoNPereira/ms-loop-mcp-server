@@ -39,8 +39,8 @@ Local `stdio` MCP server for Microsoft Loop.
 ## Install from this repository
 
 ```bash
-git clone https://github.com/vilsonrodrigues/msloop-mcp.git
-cd msloop-mcp
+git clone https://github.com/vilsonrodrigues/ms-loop-mcp-server.git
+cd ms-loop-mcp-server
 npm ci
 npm run build
 ```
@@ -58,7 +58,7 @@ path to your clone:
   "mcpServers": {
     "loop": {
       "command": "node",
-      "args": ["/absolute/path/to/msloop-mcp/dist/index.js"]
+      "args": ["/absolute/path/to/ms-loop-mcp-server/dist/index.js"]
     }
   }
 }
@@ -71,7 +71,7 @@ On Windows, escape backslashes in JSON:
   "mcpServers": {
     "loop": {
       "command": "node",
-      "args": ["C:\\Users\\you\\src\\msloop-mcp\\dist\\index.js"]
+      "args": ["C:\\Users\\you\\src\\ms-loop-mcp-server\\dist\\index.js"]
     }
   }
 }

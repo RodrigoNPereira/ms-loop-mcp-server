@@ -4,9 +4,10 @@ This document captures project knowledge to help AI agents work effectively with
 
 ## Repository
 
-- **Repository**: https://github.com/shayanline/msloop-mcp
-- **Package**: [`msloop-mcp`](https://www.npmjs.com/package/msloop-mcp)
-- **Install**: `npx -y msloop-mcp@latest`, or clone the repo, `npm install && npm run build`, then point your MCP client to `dist/index.js`.
+- **Repository**: https://github.com/vilsonrodrigues/ms-loop-mcp-server
+- **Upstream**: https://github.com/shayanline/msloop-mcp
+- **Package name**: `ms-loop-mcp-server` (maintained and run from a local clone; not published to npm)
+- **Install**: clone the repository, run `npm ci && npm run build`, then point the MCP client to `dist/index.js`.
 - **Sibling projects**: [`msteams-mcp`](https://github.com/shayanline/msteams-mcp) and [`msoutlook-mcp`](https://github.com/shayanline/msoutlook-mcp). This project follows the same auth and session pattern; `msoutlook-mcp` is the closest template.
 
 ## Project Overview
