@@ -11,6 +11,7 @@ name: Publish to npm
 # Releases are published through this workflow with no stored npm token.
 
 on:
+  workflow_dispatch:
   release:
     types: [published]
 
