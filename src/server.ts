@@ -10,7 +10,7 @@ import { registerSearchTools } from './tools/search-tools.js';
 
 export function createServer(): McpServer {
   const server = new McpServer({
-    name: 'msloop-mcp',
+    name: 'ms-loop-mcp-server',
     version: '0.1.2',
   });
 

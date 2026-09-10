@@ -12,6 +12,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `loop_update_page` for appending, prepending, replacing a named section, replacing the complete body, and renaming pages.
 - Loop Web Service token extraction and refresh, with an optional Azure CLI token fallback.
 
+### Changed
+
+- Rename the maintained fork to `ms-loop-mcp-server` and replace the upstream-oriented README with direct capability, limitation, local stdio, and SSH usage documentation.
+
 ### Fixed
 
 - `MSLOOP_BROWSER=chromium` now selects Playwright's bundled browser instead of Chrome.

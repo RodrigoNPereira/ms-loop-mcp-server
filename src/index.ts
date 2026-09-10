@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * msloop-mcp — MCP server for Microsoft Loop
+ * ms-loop-mcp-server — local stdio server for Microsoft Loop
  *
  * No app registration required. Uses your existing Loop web session, the same
  * way msteams-mcp and msoutlook-mcp reuse the Teams and Outlook web sessions.
  *
- * Usage: npx msloop-mcp
+ * Usage: node dist/index.js
  */
 
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
@@ -17,7 +17,7 @@ async function main(): Promise<void> {
   const transport = new StdioServerTransport();
 
   await server.server.connect(transport);
-  logger.info('msloop-mcp running on stdio');
+  logger.info('ms-loop-mcp-server running on stdio');
 }
 
 main().catch(err => {

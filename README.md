@@ -1,40 +1,42 @@
-# msloop-mcp
+# ms-loop-mcp-server
 
-[![npm version](https://img.shields.io/npm/v/msloop-mcp.svg)](https://www.npmjs.com/package/msloop-mcp)
-[![npm downloads](https://img.shields.io/npm/dm/msloop-mcp.svg)](https://www.npmjs.com/package/msloop-mcp)
-[![node](https://img.shields.io/node/v/msloop-mcp.svg)](https://www.npmjs.com/package/msloop-mcp)
-[![license](https://img.shields.io/npm/l/msloop-mcp.svg)](./LICENSE)
+Local `stdio` MCP server for Microsoft Loop.
 
-MCP server for Microsoft Loop. No app registration required.
+## What it can do
 
-Give any MCP client (Claude, Cursor, Devin, ...) access to discover, read, create, and update Microsoft Loop workspaces and pages. It works by reusing your existing Loop web session, the same way [msteams-mcp](https://github.com/shayanline/msteams-mcp) and [msoutlook-mcp](https://github.com/shayanline/msoutlook-mcp) reuse the Teams and Outlook web sessions: you sign in once in a browser, then tokens are cached and refreshed automatically.
+| Tool | Capability |
+|------|------------|
+| `loop_login` | Authenticate with a Microsoft 365 work or school account |
+| `loop_status` | Show authentication and token status |
+| `loop_logout` | Delete the locally stored Loop session |
+| `loop_list_workspaces` | List accessible Loop workspaces |
+| `loop_list_pages` | List the complete page tree in a workspace |
+| `loop_get_page` | Read a page as Markdown or exported HTML |
+| `loop_create_page` | Create a page from Markdown |
+| `loop_update_page` | Rename, append, prepend, replace a section, or replace a page body |
+| `loop_search` | Search Loop files through Microsoft Graph |
+| `loop_create_workspace` | Create a shared workspace |
 
-## Why
+## Limitations
 
-Microsoft does not publish a public API for Loop. This server reuses the Loop web app's own first party client ID, so your access is exactly what your account already has, with no Azure app registration, no admin consent, and no client secrets. Nothing leaves your own machine.
+- Microsoft does not provide a public Loop content API. Page creation and
+  updates use the undocumented API used by the Loop web client and may stop
+  working if Microsoft changes it.
+- Rich Fluid components, comments, live collaboration, cursors, and arbitrary
+  component editing are not supported.
+- HTML-to-Markdown conversion is lossy for interactive components.
+- Page deletion is not currently exposed as an MCP tool.
+- The server is single-user. Every operation runs with the permissions of the
+  Microsoft account authenticated through `loop_login`.
+- `loop_create_workspace` is less mature than the page operations.
 
-## Capabilities and limitations
+## Requirements
 
-Loop is built differently from Teams or Outlook. Pages are [Fluid Framework](https://fluidframework.com) documents stored in SharePoint Embedded containers. Microsoft does not publish a content-write API, but the Loop clients use an internal high-level service that can materialise Markdown edits into Fluid operations. This server calls that service directly:
+- Node.js 20 or newer
+- Chrome, Edge, or Playwright Chromium
+- A Microsoft 365 work or school account with Loop access
 
-- **Supported:** list workspaces, list pages, read content as Markdown or HTML, create pages from Markdown, append/prepend/replace page content, change page titles, search Loop files, and create workspaces.
-- **Not supported:** comments, live cursors, arbitrary rich-component editing, or real-time collaboration sessions.
-
-Page content is read by asking SharePoint to render the Fluid document to HTML on demand (the `?format=html` export), which is then converted to Markdown. Rich, interactive components (tables, voting, mentions) may render approximately.
-
-## How it works
-
-The Loop web app (`loop.cloud.microsoft`) uses MSAL to store OAuth tokens in the browser. This server:
-
-1. Opens a browser to `loop.cloud.microsoft` via Playwright.
-2. Extracts the MSAL tokens from local and session storage, using Loop's own first party client ID (`a187e399-0c36-4b98-8f04-1edc167a0996`). It keeps four: a Substrate token (workspace and page metadata), a SharePoint token (page export), a Graph token (search), and a Loop Web Service token (page creation and updates).
-3. Caches the access tokens, refresh token, and session state in `~/.msloop-mcp-server/` (AES-256-GCM encrypted).
-4. Refreshes tokens automatically using the refresh token (HTTP, no browser) or a headless browser as fallback.
-
-## Run this fork locally
-
-The unpublished page-write and security changes in this fork are not included
-in the upstream `msloop-mcp` package on npm. Clone and build this repository once:
+## Install from this repository
 
 ```bash
 git clone https://github.com/vilsonrodrigues/msloop-mcp.git
@@ -43,8 +45,13 @@ npm ci
 npm run build
 ```
 
-Configure the MCP client to execute the built server directly. Replace the
-example with the absolute path where the repository was cloned:
+The server runs from the local build. It does not use the abandoned upstream
+npm release.
+
+## MCP configuration
+
+Configure the MCP client to launch `dist/index.js` with Node. Use the absolute
+path to your clone:
 
 ```json
 {
@@ -57,10 +64,59 @@ example with the absolute path where the repository was cloned:
 }
 ```
 
-On Windows, use an escaped absolute path such as
-`C:\\Users\\you\\src\\msloop-mcp\\dist\\index.js`.
+On Windows, escape backslashes in JSON:
 
-To update the local installation:
+```json
+{
+  "mcpServers": {
+    "loop": {
+      "command": "node",
+      "args": ["C:\\Users\\you\\src\\msloop-mcp\\dist\\index.js"]
+    }
+  }
+}
+```
+
+Restart the MCP client after changing the configuration.
+
+## Authentication
+
+Invoke `loop_login` from the MCP client. The first login opens a browser for
+password and MFA. Token refresh is normally silent after that.
+
+Session data is stored in `~/.msloop-mcp-server/` on macOS/Linux or
+`%APPDATA%\msloop-mcp-server\` on Windows. The existing directory name is kept
+for compatibility with sessions created before the project rename.
+
+The stored session contains Microsoft bearer and refresh tokens. Do not share
+it, commit it, or copy it to another machine. Use `loop_logout` to remove it.
+
+## Remote execution over SSH
+
+The server uses `stdio` only. It can run on another machine by transporting
+stdio over SSH:
+
+```json
+{
+  "mcpServers": {
+    "loop": {
+      "command": "ssh",
+      "args": [
+        "-T",
+        "user@mcp-host",
+        "node",
+        "/opt/ms-loop-mcp-server/dist/index.js"
+      ]
+    }
+  }
+}
+```
+
+Run `loop_login` on the remote machine so its session is created there. The
+remote shell must not print banners or other text to stdout, because stdout is
+reserved for MCP messages.
+
+## Updating
 
 ```bash
 git pull --ff-only
@@ -68,98 +124,32 @@ npm ci
 npm run build
 ```
 
-Restart the MCP client after the first build or an update. Then invoke
-`loop_login`; only the initial authentication normally needs a visible browser.
-
-Do not use `npx -y msloop-mcp@latest` when you intend to run this fork: that
-command downloads the upstream npm release and does not contain this fork's
-page creation, editing, or additional security hardening.
-
-## Upstream npm release
-
-The upstream read-oriented release can still be run from npm:
-
-```json
-{
-  "mcpServers": {
-    "loop": {
-      "command": "npx",
-      "args": ["-y", "msloop-mcp@latest"]
-    }
-  }
-}
-```
-
-Then run `loop_login` from your MCP client. On first use a browser opens so you can sign in; after that, logins are silent and no browser appears. Do not close the window manually, it closes itself once you are signed in.
-
-## Tools
-
-### Auth
-
-| Tool | Description |
-|------|-------------|
-| `loop_login` | Sign in to Loop (silent if possible, browser only when needed) |
-| `loop_status` | Check authentication status and token validity |
-| `loop_logout` | Clear the saved session and tokens |
-
-### Workspaces and pages
-
-| Tool | Description |
-|------|-------------|
-| `loop_list_workspaces` | List all Loop workspaces you can access, including your personal "My workspace" |
-| `loop_list_pages` | List the complete page tree in a workspace, including page and element ids |
-| `loop_get_page` | Read a page's content as Markdown (or `html`) by page id |
-| `loop_create_page` | Create a page from Markdown, optionally as a subpage or at a selected position |
-| `loop_update_page` | Append, prepend, replace a heading section, replace the complete body, or rename a page |
-| `loop_search` | Search across your Loop pages and components by keyword (via Microsoft Graph) |
-| `loop_create_workspace` | **Experimental.** Create a new shared workspace |
-
-## Session storage
-
-Session files are stored encrypted in `~/.msloop-mcp-server/`:
-
-- `session-state.json`: Playwright browser session (cookies + localStorage)
-- `token-cache.json`: Extracted and cached tokens
-- `browser-profile/`: Persistent browser profile for headless refresh
-
-If your session expires, run `loop_login` again.
-
-## Token refresh
-
-Tokens are refreshed automatically:
-
-1. **HTTP refresh** (fast, no browser): uses the cached refresh token with Loop's client ID, one call per resource (Substrate, SharePoint, Graph, Loop Web Service).
-2. **Headless browser refresh**: fallback if HTTP refresh fails; opens a headless browser with the saved profile to silently reacquire tokens.
-
-For page writes only, a signed-in Azure CLI account is also tried as a token fallback. Some tenants block the Azure CLI application from the Loop service; in that case, run `loop_login` so the server uses the official Loop web application's identity.
-
-## Requirements
-
-- Node.js 20+
-- A Chromium based browser: Edge or Chrome (detected automatically from system default)
-- A Microsoft 365 work or school account with access to Microsoft Loop
+Restart the MCP client after rebuilding.
 
 ## Environment variables
 
-| Variable | Description |
-|----------|-------------|
-| `MSLOOP_DEBUG=true` | Enable debug logging to stderr |
-| `MSLOOP_BROWSER=chrome` | Force a browser: `chrome`, `msedge`, or `chromium` for Playwright's bundled browser. If unset, uses the macOS system default; falls back to Chrome on macOS/Linux and Edge on Windows |
-| `MSLOOP_CHROME_PROFILE` | Pin a specific Chrome profile dir for cookie import (e.g. `Profile 1`). Defaults to `Default` |
-| `MSLOOP_EDGE_PROFILE` | Pin a specific Edge profile dir for cookie import (e.g. `Profile 1`). Defaults to `Default` |
-| `MSLOOP_SKIP_COOKIE_IMPORT=true` | Skip importing SSO cookies from your real browser (avoids the one time Keychain/keyring prompt). You sign in once manually; the persistent profile then remembers the session |
+| Variable | Purpose |
+|----------|---------|
+| `MSLOOP_DEBUG=true` | Write diagnostic logs to stderr |
+| `MSLOOP_BROWSER=chrome` | Select `chrome`, `msedge`, or Playwright's `chromium` |
+| `MSLOOP_CHROME_PROFILE` | Select a Chrome profile directory, such as `Profile 1` |
+| `MSLOOP_EDGE_PROFILE` | Select an Edge profile directory, such as `Profile 1` |
+| `MSLOOP_SKIP_COOKIE_IMPORT=true` | Skip importing SSO cookies from the system browser |
 
-## Security notes
+## Development
 
-- Uses the same auth as the Loop web client, so your access is limited to what your account can do.
-- Tokens are encrypted at rest (AES-256-GCM with a machine derived key).
-- Uses undocumented internal APIs, which Microsoft may change without notice.
-- `replace_all` is destructive and requires `confirm_replace_all=true`; append is the default update operation.
+```bash
+npm run typecheck
+npm test
+npm run build
+npm audit --omit=dev
+```
 
-## Acknowledgements
-
-The Loop endpoint mapping (Substrate discovery, the SharePoint multipart "GET via POST" convention, and the HTML export route) was informed by [exec-astraea/loop-migration](https://github.com/exec-astraea/loop-migration) and [Nico De Cleyre's "Microsoft Loop under the hood"](https://www.nicodecleyre.com/blog/2023-04-03-microsoft-loop-under-the-hood/).
-
-## License
+## License and acknowledgements
 
 MIT. See [LICENSE](./LICENSE).
+
+The original implementation was created by Shayan Khaksar. Endpoint mapping
+was informed by
+[exec-astraea/loop-migration](https://github.com/exec-astraea/loop-migration)
+and [Microsoft Loop under the hood](https://www.nicodecleyre.com/blog/2023-04-03-microsoft-loop-under-the-hood/).

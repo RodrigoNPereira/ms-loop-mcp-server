@@ -51,7 +51,7 @@ export function registerAuthTools(server: McpServer): void {
 
       if (!forceNew) {
         process.stderr.write(
-          '[msloop-mcp] Opening browser. Do NOT close the window — it closes automatically once signed in.\n',
+          '[ms-loop-mcp-server] Opening browser. Do NOT close the window — it closes automatically once signed in.\n',
         );
       }
 
