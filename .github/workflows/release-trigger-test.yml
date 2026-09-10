@@ -2,7 +2,7 @@ name: Release trigger test
 
 on:
   release:
-    types: [edited]
+    types: [published]
 
 jobs:
   probe:
