@@ -1,7 +1,7 @@
 {
   "name": "ms-loop-mcp-server",
-  "version": "0.1.2",
-  "description": "Local stdio MCP server for discovering, reading, creating, and updating Microsoft Loop pages.",
+  "version": "0.2.0",
+  "description": "Unofficial local stdio MCP server for discovering, reading, creating, and updating Microsoft Loop pages.",
   "keywords": [
     "mcp",
     "loop",
@@ -9,7 +9,10 @@
     "microsoft-loop",
     "model-context-protocol"
   ],
-  "author": "Shayan Khaksar <sh.khaksar95@gmail.com>",
+  "author": "Vilson Rodrigues <23613942+vilsonrodrigues@users.noreply.github.com>",
+  "contributors": [
+    "Shayan Khaksar <sh.khaksar95@gmail.com>"
+  ],
   "license": "MIT",
   "type": "module",
   "main": "dist/index.js",
@@ -40,10 +43,10 @@
     "@types/node": "^22.0.0",
     "@types/sql.js": "^1.4.11",
     "@types/turndown": "^5.0.5",
-    "@vitest/coverage-v8": "^4.1.8",
+    "@vitest/coverage-v8": "^4.1.11",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.11"
   },
   "engines": {
     "node": ">=20.0.0"
@@ -55,5 +58,8 @@
   "bugs": {
     "url": "https://github.com/vilsonrodrigues/ms-loop-mcp-server/issues"
   },
-  "homepage": "https://github.com/vilsonrodrigues/ms-loop-mcp-server#readme"
+  "homepage": "https://github.com/vilsonrodrigues/ms-loop-mcp-server#readme",
+  "publishConfig": {
+    "access": "public"
+  }
 }

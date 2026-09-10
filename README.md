@@ -1,6 +1,6 @@
 # ms-loop-mcp-server
 
-Local `stdio` MCP server for Microsoft Loop.
+Unofficial local `stdio` MCP server for Microsoft Loop.
 
 ## What it can do
 
@@ -36,6 +36,21 @@ Local `stdio` MCP server for Microsoft Loop.
 - Chrome, Edge, or Playwright Chromium
 - A Microsoft 365 work or school account with Loop access
 
+## Install from npm
+
+```json
+{
+  "mcpServers": {
+    "loop": {
+      "command": "npx",
+      "args": ["-y", "ms-loop-mcp-server@latest"]
+    }
+  }
+}
+```
+
+Restart the MCP client and invoke `loop_login`.
+
 ## Install from this repository
 
 ```bash
@@ -45,8 +60,7 @@ npm ci
 npm run build
 ```
 
-The server runs from the local build. It does not use the abandoned upstream
-npm release.
+This runs the server from a local build instead of the npm package.
 
 ## MCP configuration
 
