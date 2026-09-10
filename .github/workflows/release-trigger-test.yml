@@ -1,0 +1,12 @@
+name: Release trigger test
+
+on:
+  release:
+    types: [edited]
+
+jobs:
+  probe:
+    name: Confirm release event delivery
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "release event reached GitHub Actions"
