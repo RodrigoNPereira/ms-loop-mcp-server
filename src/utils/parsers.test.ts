@@ -3,6 +3,7 @@ import {
   decodePodId,
   itemIdFromPageId,
   hostFromSiteUrl,
+  isSharePointHost,
   slugify,
   htmlToMarkdown,
 } from './parsers.js';
@@ -22,6 +23,24 @@ describe('decodePodId', () => {
   it('returns null for undefined or too-few segments', () => {
     expect(decodePodId(undefined)).toBeNull();
     expect(decodePodId(b64('host|drive'))).toBeNull();
+  });
+
+  it('rejects a pod id that names a non-SharePoint host', () => {
+    expect(decodePodId(b64('1|x|attacker.example.com|b!drive|01ITEM'))).toBeNull();
+  });
+});
+
+describe('isSharePointHost', () => {
+  it('accepts tenant SharePoint hosts', () => {
+    expect(isSharePointHost('contoso.sharepoint.com')).toBe(true);
+    expect(isSharePointHost('contoso-my.sharepoint.com')).toBe(true);
+  });
+
+  it('rejects lookalikes, ports and empty values', () => {
+    expect(isSharePointHost('sharepoint.com.attacker.net')).toBe(false);
+    expect(isSharePointHost('attacker.net')).toBe(false);
+    expect(isSharePointHost('contoso.sharepoint.com:8443')).toBe(false);
+    expect(isSharePointHost(undefined)).toBe(false);
   });
 });
 
@@ -43,6 +62,9 @@ describe('hostFromSiteUrl', () => {
   });
   it('returns null for undefined', () => {
     expect(hostFromSiteUrl(undefined)).toBeNull();
+  });
+  it('rejects a non-SharePoint URL', () => {
+    expect(hostFromSiteUrl('https://attacker.example.com/sites/x')).toBeNull();
   });
 });
 

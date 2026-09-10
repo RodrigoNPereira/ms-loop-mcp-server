@@ -22,7 +22,7 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import type { BrowserContext } from 'playwright';
 import { logger } from '../utils/logger.js';
 
@@ -146,25 +146,32 @@ function getCookiesDbPath(dataDir: string, profile: string): string | null {
 // SQLite reading (sql.js — pure JS/WASM, no native deps)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const MICROSOFT_DOMAINS_SQL = [
-  '%microsoftonline%',
-  '%login.live.com%',
-  '%login.microsoft.com%',
-  '%microsoft.com%',
-  '%cloud.microsoft%',
-  '%sharepoint.com%',
-  '%office.com%',
-  '%office365.com%',
-  '%outlook.com%',
-].map(d => `host_key LIKE '${d}'`).join(' OR ');
+const MICROSOFT_COOKIE_DOMAINS = [
+  'microsoftonline.com',
+  'login.live.com',
+  'login.microsoft.com',
+  'cloud.microsoft',
+  'sharepoint.com',
+  'office.com',
+];
+
+const MICROSOFT_DOMAINS_SQL = MICROSOFT_COOKIE_DOMAINS
+  .map(d => `host_key = '${d}' OR host_key LIKE '%.${d}'`)
+  .join(' OR ');
 
 async function readCookiesFromDb(dbPath: string): Promise<RawCookie[]> {
-  const tmpDb = path.join(os.tmpdir(), `msloop-mcp-cookies-${Date.now()}.db`);
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'msloop-mcp-'));
+  fs.chmodSync(tmpDir, 0o700);
+  const tmpDb = path.join(tmpDir, 'cookies.db');
   try {
     fs.copyFileSync(dbPath, tmpDb);
+    fs.chmodSync(tmpDb, 0o600);
     for (const ext of ['-wal', '-shm']) {
       const src = dbPath + ext;
-      if (fs.existsSync(src)) fs.copyFileSync(src, tmpDb + ext);
+      if (fs.existsSync(src)) {
+        fs.copyFileSync(src, tmpDb + ext);
+        fs.chmodSync(tmpDb + ext, 0o600);
+      }
     }
 
     const initSqlJs = (await import('sql.js')).default;
@@ -199,9 +206,7 @@ async function readCookiesFromDb(dbPath: string): Promise<RawCookie[]> {
     logger.debug('Failed to read cookies DB', err instanceof Error ? err.message : String(err));
     return [];
   } finally {
-    for (const f of [tmpDb, `${tmpDb}-wal`, `${tmpDb}-shm`]) {
-      try { fs.unlinkSync(f); } catch { /* ignore */ }
-    }
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* ignore */ }
   }
 }
 
@@ -214,8 +219,8 @@ const macKeyCache = new Map<string, Buffer | null>();
 function getMacOSDecryptionKey(keychainService: string): Buffer | null {
   if (macKeyCache.has(keychainService)) return macKeyCache.get(keychainService) ?? null;
   try {
-    const password = execSync(
-      `security find-generic-password -s "${keychainService}" -w`,
+    const password = execFileSync(
+      'security', ['find-generic-password', '-s', keychainService, '-w'],
       { encoding: 'utf8', timeout: 5000 },
     ).trim();
     const key = crypto.pbkdf2Sync(password, 'saltysalt', 1003, 16, 'sha1');
@@ -240,13 +245,13 @@ function getLinuxDecryptionKey(keychainService: string): Buffer {
 
   const appName = keychainService.toLowerCase().includes('edge') ? 'microsoft-edge' : 'chrome';
   const secretToolAttempts = [
-    `secret-tool lookup xdg:schema chrome_libsecret_os_crypt_password_v2 application ${appName}`,
-    `secret-tool lookup xdg:schema chrome_libsecret_os_crypt_password_v1 application ${appName}`,
-    `secret-tool lookup service "${keychainService}" account "${appName}"`,
+    ['lookup', 'xdg:schema', 'chrome_libsecret_os_crypt_password_v2', 'application', appName],
+    ['lookup', 'xdg:schema', 'chrome_libsecret_os_crypt_password_v1', 'application', appName],
+    ['lookup', 'service', keychainService, 'account', appName],
   ];
-  for (const cmd of secretToolAttempts) {
+  for (const args of secretToolAttempts) {
     try {
-      const result = execSync(cmd, { encoding: 'utf8', timeout: 3000 }).trim();
+      const result = execFileSync('secret-tool', args, { encoding: 'utf8', timeout: 3000 }).trim();
       if (result) { password = result; break; }
     } catch { /* continue */ }
   }
@@ -278,12 +283,14 @@ function getWindowsDecryptionKey(dataDir: string): Buffer | null {
 
     const encryptedKeyBytes = Buffer.from(encryptedKeyB64, 'base64');
     const dpapiBlob = encryptedKeyBytes.subarray(5); // strip "DPAPI"
-    const dpapiB64 = dpapiBlob.toString('base64');
-
-    const psScript = `Add-Type -AssemblyName System.Security; [System.Convert]::ToBase64String([System.Security.Cryptography.ProtectedData]::Unprotect([System.Convert]::FromBase64String('${dpapiB64}'), $null, [System.Security.Cryptography.DataProtectionScope]::CurrentUser))`;
-    const decryptedB64 = execSync(
-      `powershell -NoProfile -NonInteractive -Command "${psScript}"`,
-      { encoding: 'utf8', timeout: 10_000 },
+    const psScript = `Add-Type -AssemblyName System.Security; [System.Convert]::ToBase64String([System.Security.Cryptography.ProtectedData]::Unprotect([System.Convert]::FromBase64String($env:MSLOOP_DPAPI_BLOB), $null, [System.Security.Cryptography.DataProtectionScope]::CurrentUser))`;
+    const decryptedB64 = execFileSync(
+      'powershell', ['-NoProfile', '-NonInteractive', '-Command', psScript],
+      {
+        encoding: 'utf8',
+        timeout: 10_000,
+        env: { ...process.env, MSLOOP_DPAPI_BLOB: dpapiBlob.toString('base64') },
+      },
     ).trim();
 
     const key = Buffer.from(decryptedB64, 'base64');

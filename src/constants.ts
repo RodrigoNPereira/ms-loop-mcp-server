@@ -41,7 +41,10 @@ export const LOOP_ORIGIN = 'https://loop.cloud.microsoft';
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Substrate host that serves the internal Loop metadata API. */
-export const SUBSTRATE_BASE = 'https://substrate.office.com';
+export const SUBSTRATE_HOST = 'substrate.office.com';
+
+/** Substrate base URL. */
+export const SUBSTRATE_BASE = `https://${SUBSTRATE_HOST}`;
 
 /** Substrate Loop API (workspaces, recent, deltasync) — version 1.1. */
 export const LOOP_API_BASE = `${SUBSTRATE_BASE}/recommended/api/v1.1/loop`;

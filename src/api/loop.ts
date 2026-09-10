@@ -8,7 +8,7 @@
  *   - /deltasync   — full component graph (bulk of page metadata)
  */
 
-import { LOOP_API_BASE, SPEEDWAY_BASE, SUBSTRATE_BASE } from '../constants.js';
+import { LOOP_API_BASE, SPEEDWAY_BASE, SUBSTRATE_BASE, SUBSTRATE_HOST } from '../constants.js';
 import { logger } from '../utils/logger.js';
 import { substrateGet, substratePost } from './client.js';
 import type { LoopData, LoopWorkspace, LoopPage } from '../types/loop.js';
@@ -22,9 +22,21 @@ const ENDPOINTS = [
   `${LOOP_API_BASE}/deltasync?loopComponents=true&rs=en-us`,
 ];
 
-/** Resolve a next_page_link (which may be relative) against the Substrate base. */
-function resolveNextLink(link: string): string {
-  if (/^https?:\/\//i.test(link)) return link;
+/** Resolve pagination without allowing a response to redirect the bearer token. */
+function resolveNextLink(link: string): string | null {
+  if (/^https?:\/\//i.test(link)) {
+    let url: URL;
+    try {
+      url = new URL(link);
+    } catch {
+      return null;
+    }
+    if (url.protocol !== 'https:' || url.host !== SUBSTRATE_HOST) {
+      logger.warn(`Ignoring next_page_link pointing off Substrate: ${url.host}`);
+      return null;
+    }
+    return url.toString();
+  }
   return link.startsWith('/') ? `${SUBSTRATE_BASE}${link}` : `${LOOP_API_BASE}/${link}`;
 }
 
@@ -35,7 +47,7 @@ async function fetchAllPages(startUrl: string): Promise<LoopData[]> {
   while (url && count < MAX_PAGES) {
     const data: LoopData = await substrateGet<LoopData>(url);
     results.push(data);
-    url = data.next_page_link ? resolveNextLink(data.next_page_link) : undefined;
+    url = data.next_page_link ? resolveNextLink(data.next_page_link) ?? undefined : undefined;
     count++;
   }
   return results;

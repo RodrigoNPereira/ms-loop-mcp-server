@@ -11,6 +11,17 @@ describe('encodeLoopWebPageId', () => {
     expect(Buffer.from(encoded, 'base64').toString('utf8')).toBe('contoso.sharepoint.com,drive-1,item-2');
   });
 
+  it('rejects page ids containing non-SharePoint hosts', () => {
+    expect(() => encodeLoopWebPageId({
+      host: 'attacker.example.com',
+      driveId: 'drive-1',
+      itemId: 'item-2',
+    })).toThrow('Invalid SharePoint host');
+    expect(decodeLoopWebPageId(
+      Buffer.from('attacker.example.com,drive-1,item-2').toString('base64'),
+    )).toBeNull();
+  });
+
   it('round-trips valid ids and rejects malformed ids', () => {
     const coordinates = { host: 'contoso.sharepoint.com', driveId: 'drive-1', itemId: 'item-2' };
     expect(decodeLoopWebPageId(encodeLoopWebPageId(coordinates))).toEqual(coordinates);

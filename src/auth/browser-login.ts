@@ -16,7 +16,7 @@
 import { chromium, type BrowserContext, type Page } from 'playwright';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { logger } from '../utils/logger.js';
 import { LOOP_URL, LOGIN_TIMEOUT_MS } from '../constants.js';
 import {
@@ -97,7 +97,7 @@ function getMacOSDefaultBrowser(): string | undefined {
       process.env.HOME ?? '',
       'Library/Preferences/com.apple.LaunchServices/com.apple.launchservices.secure.plist',
     );
-    const json = execSync(`plutil -convert json -o - "${plistPath}"`, {
+    const json = execFileSync('plutil', ['-convert', 'json', '-o', '-', plistPath], {
       encoding: 'utf8',
       timeout: 3000,
     });

@@ -5,12 +5,20 @@
 import TurndownService from 'turndown';
 import type { SpoCoordinates } from '../types/loop.js';
 
+const SHAREPOINT_HOST_RE = /^[a-z0-9-]+(\.[a-z0-9-]+)*\.sharepoint\.com$/i;
+
+/** True only for a SharePoint Online hostname without credentials or a port. */
+export function isSharePointHost(host: string | undefined | null): boolean {
+  return !!host && SHAREPOINT_HOST_RE.test(host);
+}
+
 /**
  * Decode a workspace `mfs_info.pod_id` into SharePoint coordinates.
  *
  * The pod_id is a base64 string whose decoded form is a pipe-delimited list
  * ending in `…|{host}|{driveId}|{itemId}`. We take the last three segments.
- * Returns null if the value can't be decoded into three trailing segments.
+ * Returns null if the value can't be decoded into three trailing segments or
+ * if the embedded host is not a SharePoint Online host.
  */
 export function decodePodId(podId: string | undefined): SpoCoordinates | null {
   if (!podId) return null;
@@ -23,7 +31,7 @@ export function decodePodId(podId: string | undefined): SpoCoordinates | null {
   const parts = decoded.split('|').filter(Boolean);
   if (parts.length < 3) return null;
   const [host, driveId, itemId] = parts.slice(-3);
-  if (!host || !driveId || !itemId) return null;
+  if (!driveId || !itemId || !isSharePointHost(host)) return null;
   return { host, driveId, itemId };
 }
 
@@ -40,13 +48,15 @@ export function itemIdFromPageId(pageId: string): string {
 /** Derive the SharePoint host (no scheme) from a site URL like https://contoso.sharepoint.com/sites/x. */
 export function hostFromSiteUrl(siteUrl: string | undefined): string | null {
   if (!siteUrl) return null;
+  let host: string | null;
   try {
-    return new URL(siteUrl).host;
+    host = new URL(siteUrl).host;
   } catch {
     // siteUrl may already be a bare host
     const m = siteUrl.match(/[^/]+\.sharepoint\.com/i);
-    return m ? m[0] : null;
+    host = m ? m[0] : null;
   }
+  return isSharePointHost(host) ? host : null;
 }
 
 /** Slugify a title into a filesystem/url-safe segment. */

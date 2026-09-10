@@ -8,7 +8,7 @@
  */
 
 import { sharePointGetText } from './client.js';
-import { itemIdFromPageId, hostFromSiteUrl, htmlToMarkdown } from '../utils/parsers.js';
+import { itemIdFromPageId, hostFromSiteUrl, htmlToMarkdown, isSharePointHost } from '../utils/parsers.js';
 import type { LoopPage, SpoCoordinates } from '../types/loop.js';
 
 export interface PageContent {
@@ -18,7 +18,10 @@ export interface PageContent {
 }
 
 function contentUrl({ host, driveId, itemId }: SpoCoordinates): string {
-  return `https://${host}/_api/v2.0/drives/${driveId}/items/${itemId}/content?format=html&ump=1`;
+  if (!isSharePointHost(host)) {
+    throw new Error(`Refusing to send a SharePoint token to non-SharePoint host "${host}".`);
+  }
+  return `https://${host}/_api/v2.0/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}/content?format=html&ump=1`;
 }
 
 /**

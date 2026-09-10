@@ -12,6 +12,7 @@ import { getLoopApiToken } from '../auth/index.js';
 import { LOOP_ORIGIN, LOOP_USER_AGENT, LOOP_WEB_SERVICE_BASE } from '../constants.js';
 import { fetchWithRetry, parseResponse } from '../utils/http.js';
 import type { SpoCoordinates } from '../types/loop.js';
+import { isSharePointHost } from '../utils/parsers.js';
 
 export type PagePosition = 'first' | 'last' | 'before' | 'after';
 
@@ -75,6 +76,7 @@ export interface ListPagesResponse {
 
 /** Encode the page locator expected by Loop Web Service. */
 export function encodeLoopWebPageId({ host, driveId, itemId }: SpoCoordinates): string {
+  if (!isSharePointHost(host)) throw new Error(`Invalid SharePoint host "${host}".`);
   return Buffer.from(`${host},${driveId},${itemId}`, 'utf8').toString('base64');
 }
 
@@ -83,7 +85,7 @@ export function decodeLoopWebPageId(pageId: string): SpoCoordinates | null {
   try {
     const decoded = Buffer.from(pageId, 'base64').toString('utf8');
     const [host, driveId, itemId, ...extra] = decoded.split(',');
-    if (extra.length > 0 || !host?.includes('.') || !driveId || !itemId) return null;
+    if (extra.length > 0 || !isSharePointHost(host) || !driveId || !itemId) return null;
     return { host, driveId, itemId };
   } catch {
     return null;

@@ -16,6 +16,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `MSLOOP_BROWSER=chromium` now selects Playwright's bundled browser instead of Chrome.
 - Interactive login now respects its configured timeout and allows ten minutes for password/MFA flows.
+- Bearer-token clients now reject unexpected hosts and insecure URLs before attaching credentials.
+- SharePoint coordinates and Loop Web Service page ids now reject non-SharePoint hosts, and URL path segments are encoded.
+- Substrate pagination ignores links that leave its expected HTTPS origin.
+- Browser cookie import now uses exact-domain matching and private temporary files, and avoids shell interpolation when invoking platform credential tools.
+
+### Documentation
+
+- Document local clone-and-build usage for running the maintained fork without installing the upstream npm package.
 
 ## [0.1.2] - 2026-06-12
 
