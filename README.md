@@ -31,7 +31,53 @@ The Loop web app (`loop.cloud.microsoft`) uses MSAL to store OAuth tokens in the
 3. Caches the access tokens, refresh token, and session state in `~/.msloop-mcp-server/` (AES-256-GCM encrypted).
 4. Refreshes tokens automatically using the refresh token (HTTP, no browser) or a headless browser as fallback.
 
-## Quick start
+## Run this fork locally
+
+The unpublished page-write and security changes in this fork are not included
+in the upstream `msloop-mcp` package on npm. Clone and build this repository once:
+
+```bash
+git clone https://github.com/vilsonrodrigues/msloop-mcp.git
+cd msloop-mcp
+npm ci
+npm run build
+```
+
+Configure the MCP client to execute the built server directly. Replace the
+example with the absolute path where the repository was cloned:
+
+```json
+{
+  "mcpServers": {
+    "loop": {
+      "command": "node",
+      "args": ["/absolute/path/to/msloop-mcp/dist/index.js"]
+    }
+  }
+}
+```
+
+On Windows, use an escaped absolute path such as
+`C:\\Users\\you\\src\\msloop-mcp\\dist\\index.js`.
+
+To update the local installation:
+
+```bash
+git pull --ff-only
+npm ci
+npm run build
+```
+
+Restart the MCP client after the first build or an update. Then invoke
+`loop_login`; only the initial authentication normally needs a visible browser.
+
+Do not use `npx -y msloop-mcp@latest` when you intend to run this fork: that
+command downloads the upstream npm release and does not contain this fork's
+page creation, editing, or additional security hardening.
+
+## Upstream npm release
+
+The upstream read-oriented release can still be run from npm:
 
 ```json
 {
