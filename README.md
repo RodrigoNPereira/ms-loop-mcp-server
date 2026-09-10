@@ -36,7 +36,12 @@ Unofficial local `stdio` MCP server for Microsoft Loop.
 - Chrome, Edge, or Playwright Chromium
 - A Microsoft 365 work or school account with Loop access
 
-## Install from npm
+## Installation
+
+### Option 1: run directly from npm
+
+This is the recommended setup. `npx` downloads and runs the published package;
+there is no repository to clone or build manually:
 
 ```json
 {
@@ -51,7 +56,21 @@ Unofficial local `stdio` MCP server for Microsoft Loop.
 
 Restart the MCP client and invoke `loop_login`.
 
-## Install from this repository
+To pin a specific release instead of following `latest`, replace the argument
+with `ms-loop-mcp-server@0.2.0`.
+
+You can alternatively install the executable globally:
+
+```bash
+npm install --global ms-loop-mcp-server
+```
+
+Then configure the MCP client with `"command": "ms-loop-mcp-server"` and no
+arguments.
+
+### Option 2: build from source
+
+Clone the repository, install its exact locked dependencies, and compile it:
 
 ```bash
 git clone https://github.com/vilsonrodrigues/ms-loop-mcp-server.git
@@ -60,12 +79,8 @@ npm ci
 npm run build
 ```
 
-This runs the server from a local build instead of the npm package.
-
-## MCP configuration
-
-Configure the MCP client to launch `dist/index.js` with Node. Use the absolute
-path to your clone:
+Configure the MCP client to launch the generated `dist/index.js` with Node. Use
+the absolute path to your clone:
 
 ```json
 {
@@ -91,7 +106,8 @@ On Windows, escape backslashes in JSON:
 }
 ```
 
-Restart the MCP client after changing the configuration.
+Restart the MCP client after changing the configuration, then invoke
+`loop_login`.
 
 ## Authentication
 
@@ -131,6 +147,15 @@ remote shell must not print banners or other text to stdout, because stdout is
 reserved for MCP messages.
 
 ## Updating
+
+When using `npx` with `@latest`, restart the MCP client to resolve the current
+published version. For a global installation, run:
+
+```bash
+npm update --global ms-loop-mcp-server
+```
+
+For a source build, update and rebuild the clone:
 
 ```bash
 git pull --ff-only
