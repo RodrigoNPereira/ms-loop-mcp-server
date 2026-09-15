@@ -10,6 +10,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `loop_move_page` for reparenting or reordering an existing page within its workspace tree, without touching its title or content.
 
+### Fixed
+
+- Send the registered Microsoft 365 client scenario required by the Loop Web Service for page listing, reads, creation, and updates.
+
 ## [0.2.1] - 2026-09-10
 
 ### Documentation
