@@ -16,23 +16,6 @@ import type { LoopData, LoopWorkspace, LoopPage } from '../types/loop.js';
 /** Cap on pagination follow-ups, to avoid runaway loops. */
 const MAX_PAGES = 20;
 
-/**
- * How long a successful `discover()` result stays fresh before the next call
- * re-queries Substrate. Keeps rapid-fire tool calls (e.g. list then get, or
- * several lookups in the same turn) from re-fetching and re-merging three
- * paginated endpoints every time. Short enough that a page created or edited
- * moments ago is still picked up promptly.
- */
-const DISCOVER_CACHE_TTL_MS = 15_000;
-
-let discoverCache: { result: DiscoverResult; expiresAt: number } | null = null;
-let discoverInFlight: Promise<DiscoverResult> | null = null;
-
-/** Drop the cached discovery result so the next call re-fetches from Substrate. */
-export function invalidateDiscoverCache(): void {
-  discoverCache = null;
-}
-
 const ENDPOINTS = [
   `${LOOP_API_BASE}/workspaces?rs=en-us`,
   `${LOOP_API_BASE}/recent?top=30&settings=true&rs=en-us`,
@@ -76,7 +59,7 @@ interface DiscoverResult {
 }
 
 /** Query all three discovery endpoints and merge, deduplicating by id. */
-async function discoverUncached(): Promise<DiscoverResult> {
+export async function discover(): Promise<DiscoverResult> {
   const workspaces = new Map<string, LoopWorkspace>();
   const pages = new Map<string, LoopPage>();
 
@@ -102,37 +85,6 @@ async function discoverUncached(): Promise<DiscoverResult> {
   }
 
   return { workspaces: [...workspaces.values()], pages: [...pages.values()] };
-}
-
-/**
- * Query all three discovery endpoints and merge, deduplicating by id.
- *
- * Results are cached in-memory for `DISCOVER_CACHE_TTL_MS` so a burst of tool
- * calls (list workspaces, then list pages, then get a page) doesn't re-fetch
- * and re-merge three paginated Substrate endpoints each time. Concurrent
- * callers during a cache miss share a single in-flight request instead of
- * firing duplicate fetches. A failed fetch is never cached.
- */
-export async function discover(): Promise<DiscoverResult> {
-  const now = Date.now();
-  if (discoverCache && discoverCache.expiresAt > now) {
-    return discoverCache.result;
-  }
-  if (discoverInFlight) {
-    return discoverInFlight;
-  }
-
-  discoverInFlight = (async () => {
-    try {
-      const result = await discoverUncached();
-      discoverCache = { result, expiresAt: Date.now() + DISCOVER_CACHE_TTL_MS };
-      return result;
-    } finally {
-      discoverInFlight = null;
-    }
-  })();
-
-  return discoverInFlight;
 }
 
 /** List all workspaces the user can see. */

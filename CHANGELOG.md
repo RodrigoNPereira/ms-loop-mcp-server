@@ -10,10 +10,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `loop_move_page` for reparenting or reordering an existing page within its workspace tree, without touching its title or content.
 
-### Changed
-
-- `discover()` (workspace/page metadata) is now cached in-memory for 15 seconds and de-duplicates concurrent in-flight requests, reducing redundant Substrate calls across closely-timed tool invocations.
-
 ## [0.2.1] - 2026-09-10
 
 ### Documentation
